@@ -2,9 +2,8 @@
 
 > [!WARNING]
 > This project is vibe-coded.
-
-Assume there are bugs, rough edges, missing validation, and incorrect assumptions.
-Review the output before relying on it.
+> Assume there are bugs, rough edges, missing validation, and incorrect assumptions.
+> Review the output before relying on it.
 
 `steelman` is a reporting CLI for Flux-managed Helm releases.
 
@@ -222,49 +221,49 @@ This example runs the same Git-only scan in a Flux repository, stores the genera
 
 ```yaml
 stages:
-  - report
+    - report
 
 steelman:
-  stage: report
-  image: ghcr.io/astral-sh/uv:python3.13-bookworm
-  script:
-    - uvx steelman --mode git --repo . --output-dir reports
-  artifacts:
-    when: always
-    paths:
-      - reports/steelman.md
-      - reports/steelman.json
-    expire_in: 7 days
+    stage: report
+    image: ghcr.io/astral-sh/uv:python3.13-bookworm
+    script:
+        - uvx steelman --mode git --repo . --output-dir reports
+    artifacts:
+        when: always
+        paths:
+            - reports/steelman.md
+            - reports/steelman.json
+        expire_in: 7 days
 
 steelman_issue:
-  stage: report
-  image: debian:bookworm-slim
-  needs:
-    - job: steelman
-      artifacts: true
-  rules:
-    - if: $GITLAB_TOKEN
-  script:
-    - apt-get update
-    - apt-get install -y curl jq
-    - |
-      issue_iid="$(curl --silent --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-        "$CI_API_V4_URL/projects/$CI_PROJECT_ID/issues?state=opened&search=steelman%20report" | jq -r '.[0].iid // empty')"
-    - |
-      report_body="$(jq -Rs . < reports/steelman.md)"
-      if [ -n "$issue_iid" ]; then
-        curl --silent --request PUT \
-          --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-          --header "Content-Type: application/json" \
-          --data "{\"title\":\"steelman report\",\"description\":$report_body}" \
-          "$CI_API_V4_URL/projects/$CI_PROJECT_ID/issues/$issue_iid"
-      else
-        curl --silent --request POST \
-          --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-          --header "Content-Type: application/json" \
-          --data "{\"title\":\"steelman report\",\"description\":$report_body,\"labels\":\"steelman\"}" \
-          "$CI_API_V4_URL/projects/$CI_PROJECT_ID/issues"
-      fi
+    stage: report
+    image: debian:bookworm-slim
+    needs:
+        - job: steelman
+          artifacts: true
+    rules:
+        - if: $GITLAB_TOKEN
+    script:
+        - apt-get update
+        - apt-get install -y curl jq
+        - |
+            issue_iid="$(curl --silent --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+              "$CI_API_V4_URL/projects/$CI_PROJECT_ID/issues?state=opened&search=steelman%20report" | jq -r '.[0].iid // empty')"
+        - |
+            report_body="$(jq -Rs . < reports/steelman.md)"
+            if [ -n "$issue_iid" ]; then
+              curl --silent --request PUT \
+                --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+                --header "Content-Type: application/json" \
+                --data "{\"title\":\"steelman report\",\"description\":$report_body}" \
+                "$CI_API_V4_URL/projects/$CI_PROJECT_ID/issues/$issue_iid"
+            else
+              curl --silent --request POST \
+                --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+                --header "Content-Type: application/json" \
+                --data "{\"title\":\"steelman report\",\"description\":$report_body,\"labels\":\"steelman\"}" \
+                "$CI_API_V4_URL/projects/$CI_PROJECT_ID/issues"
+            fi
 ```
 
 Notes:
