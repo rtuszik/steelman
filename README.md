@@ -1,8 +1,7 @@
 # Steelman
 
-## Disclaimer
-
-This project is vibe-coded.
+> [!WARNING]
+> This project is vibe-coded.
 
 Assume there are bugs, rough edges, missing validation, and incorrect assumptions.
 Review the output before relying on it.
@@ -111,6 +110,118 @@ The JSON report contains:
 - recommendation counts
 - per-release results
 - recorded errors
+
+## CI Examples
+
+These examples assume:
+
+- the repository is a Flux v2 GitOps repository
+- the scan should use Git manifests, not live cluster access
+- the generated report should be kept as an artifact or posted into an issue
+
+For Git-only scans, use:
+
+```bash
+uvx steelman --mode git --repo . --output-dir reports
+```
+
+### GitHub Actions
+
+This example runs on a schedule and on manual dispatch, scans the current Flux repo, uploads the report artifacts, and creates or updates an issue named `steelman report`.
+
+```yaml
+name: Steelman Report
+
+on:
+    schedule:
+        - cron: "0 6 * * 1"
+    workflow_dispatch:
+
+permissions:
+    contents: read
+    issues: write
+
+jobs:
+    steelman:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v6
+
+            - name: Set up uv
+              uses: astral-sh/setup-uv@v7
+
+            - name: Run steelman
+              run: uvx steelman --mode git --repo . --output-dir reports
+
+            - name: Upload reports
+              uses: actions/upload-artifact@v6
+              with:
+                  name: steelman-report
+                  path: reports/*
+                  if-no-files-found: error
+
+            - name: Create or update issue
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  issue_number="$(gh issue list --state open --label steelman --search 'steelman report in:title' --json number --jq '.[0].number')"
+                  if [ -n "$issue_number" ]; then
+                    gh issue edit "$issue_number" --title "steelman report" --body-file reports/steelman.md
+                  else
+                    gh issue create --title "steelman report" --label steelman --body-file reports/steelman.md
+                  fi
+```
+
+Notes:
+
+- this scans desired state from Git only
+- `reports/steelman.md` and `reports/steelman.json` are uploaded as artifacts
+- the issue update step requires `issues: write`
+
+### Woodpecker CI
+
+This example runs the same Git-only scan and stores the generated files in the workspace. If your Woodpecker setup exposes a GitHub token, you can also open or update an issue with `gh`.
+
+```yaml
+steps:
+    steelman:
+        image: ghcr.io/astral-sh/uv:python3.13-bookworm
+        commands:
+            - uvx steelman --mode git --repo . --output-dir reports
+
+    steelman-report:
+        image: ghcr.io/astral-sh/uv:python3.13-bookworm
+        environment:
+            GITHUB_TOKEN:
+                from_secret: github_token
+        commands:
+            - apt-get update
+            - apt-get install -y gh
+            - issue_number="$(gh issue list --repo "$CI_REPO" --state open --label steelman --search 'steelman report in:title' --json number --jq '.[0].number')"
+            - |
+                if [ -n "$issue_number" ]; then
+                  gh issue edit "$issue_number" --repo "$CI_REPO" --title "steelman report" --body-file reports/steelman.md
+                else
+                  gh issue create --repo "$CI_REPO" --title "steelman report" --label steelman --body-file reports/steelman.md
+                fi
+```
+
+Notes:
+
+- the second step is optional
+- if you do not want issue creation, keep only the `steelman` step
+- artifact handling in Woodpecker depends on your runner and storage configuration, so this example leaves the report in `reports/`
+
+### Cluster Mode In CI
+
+If you want to scan live clusters instead of Git manifests, switch to:
+
+```bash
+uvx steelman --mode cluster --contexts prod-eu,prod-us --output-dir reports
+```
+
+That requires kubeconfig access in the CI environment. For a Flux repository, Git mode is usually the simpler starting point because it only scans desired state from the repo.
 
 ## Current Limitations
 
