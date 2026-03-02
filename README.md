@@ -73,6 +73,7 @@ uvx steelman --contexts prod-eu,prod-us
 uvx steelman --output-dir reports
 uvx steelman --offline
 uvx steelman --skip-image-analysis
+uvx steelman --include-already-migrated
 uvx steelman --helm-bin helm
 uvx steelman --image-match-threshold 0.75
 uvx steelman --aliases ./aliases.yaml
@@ -88,6 +89,7 @@ If run without flags:
 - reads kubeconfig from the default location
 - uses all contexts if kubeconfig contains 10 or fewer contexts
 - otherwise uses the current context only
+- omits the `already_dhi_chart` section from the Markdown report
 - writes:
     - `./steelman.md`
     - `./steelman.json`
@@ -97,11 +99,12 @@ If run without flags:
 The Markdown report contains:
 
 - summary
-- already on DHI chart
 - hardened chart available
 - hardened images available
 - no DHI replacement
 - scan notes
+
+Use `--include-already-migrated` if you want the Markdown report to include releases that are already using DHI charts.
 
 The JSON report contains:
 

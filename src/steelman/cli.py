@@ -28,6 +28,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-cluster", action="store_true")
     parser.add_argument("--no-git", action="store_true")
     parser.add_argument("--skip-image-analysis", action="store_true")
+    parser.add_argument(
+        "--include-already-migrated",
+        action="store_true",
+        help="Include releases already using DHI charts in the Markdown report",
+    )
     parser.add_argument("--helm-bin", default="helm")
     parser.add_argument("--image-match-threshold", type=float, default=0.75)
     parser.add_argument("--verbose", action="store_true")
@@ -108,7 +113,13 @@ def main(argv: list[str] | None = None) -> int:
             recommendation_counts.get(result.recommendation_type, 0) + 1
         )
     LOGGER.info("Recommendation summary: %s", recommendation_counts)
-    markdown_path, json_path = write_reports(args.output_dir, catalog, results, errors)
+    markdown_path, json_path = write_reports(
+        args.output_dir,
+        catalog,
+        results,
+        errors,
+        include_already_migrated=args.include_already_migrated,
+    )
     LOGGER.info("Wrote reports: %s and %s", markdown_path, json_path)
     if errors:
         LOGGER.warning("Completed with %s recorded scan errors", len(errors))

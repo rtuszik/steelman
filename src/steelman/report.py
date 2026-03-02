@@ -14,11 +14,21 @@ def write_reports(
     catalog: CatalogSnapshot,
     results: list[MatchResult],
     errors: list[ScanError],
+    *,
+    include_already_migrated: bool = False,
 ) -> tuple[Path, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     markdown_path = output_dir / "steelman.md"
     json_path = output_dir / "steelman.json"
-    markdown_path.write_text(render_markdown(catalog, results, errors), encoding="utf-8")
+    markdown_path.write_text(
+        render_markdown(
+            catalog,
+            results,
+            errors,
+            include_already_migrated=include_already_migrated,
+        ),
+        encoding="utf-8",
+    )
     json_path.write_text(
         json.dumps(render_json(catalog, results, errors), indent=2), encoding="utf-8"
     )
@@ -52,6 +62,8 @@ def render_markdown(
     catalog: CatalogSnapshot,
     results: list[MatchResult],
     errors: list[ScanError],
+    *,
+    include_already_migrated: bool = False,
 ) -> str:
     statuses = Counter(result.recommendation_type for result in results)
     sections = [
@@ -70,9 +82,10 @@ def render_markdown(
         sections.append("- Catalog mode: `degraded`")
     sections.append("")
 
-    sections.extend(
-        _render_chart_section("Already on DHI Chart", results, {"already_dhi_chart"})
-    )
+    if include_already_migrated:
+        sections.extend(
+            _render_chart_section("Already on DHI Chart", results, {"already_dhi_chart"})
+        )
     sections.extend(
         _render_chart_section(
             "Hardened Chart Available",

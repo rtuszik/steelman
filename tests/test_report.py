@@ -59,6 +59,70 @@ def test_render_report_contains_tiered_sections() -> None:
     assert payload["summary"]["recommendationCounts"]["hardened_chart_available"] == 1
 
 
+def test_render_report_omits_already_migrated_by_default() -> None:
+    result = MatchResult(
+        release_name="external-dns",
+        cluster="prod",
+        namespace="networking",
+        origin="cluster",
+        current=CurrentSource(
+            source_kind="oci",
+            source_url="oci://dhi.io/external-dns-chart",
+            chart_name="external-dns-chart",
+            version="1.18.0",
+        ),
+        identity=ChartIdentity(
+            project="external-dns",
+            vendor=None,
+            repo_url="oci://dhi.io/external-dns-chart",
+            tokens=["external", "dns"],
+        ),
+        recommendation_type="already_dhi_chart",
+        chart_replacement=None,
+        image_replacements=[],
+        chart_match_status="exact",
+        chart_match_confidence=1.0,
+        chart_match_reasons=[],
+        chart_match_evidence=[],
+        reasons=[],
+        evidence=[],
+    )
+    markdown = render_markdown(_snapshot(), [result], [])
+    assert "Already on DHI Chart" not in markdown
+
+
+def test_render_report_can_include_already_migrated() -> None:
+    result = MatchResult(
+        release_name="external-dns",
+        cluster="prod",
+        namespace="networking",
+        origin="cluster",
+        current=CurrentSource(
+            source_kind="oci",
+            source_url="oci://dhi.io/external-dns-chart",
+            chart_name="external-dns-chart",
+            version="1.18.0",
+        ),
+        identity=ChartIdentity(
+            project="external-dns",
+            vendor=None,
+            repo_url="oci://dhi.io/external-dns-chart",
+            tokens=["external", "dns"],
+        ),
+        recommendation_type="already_dhi_chart",
+        chart_replacement=None,
+        image_replacements=[],
+        chart_match_status="exact",
+        chart_match_confidence=1.0,
+        chart_match_reasons=[],
+        chart_match_evidence=[],
+        reasons=[],
+        evidence=[],
+    )
+    markdown = render_markdown(_snapshot(), [result], [], include_already_migrated=True)
+    assert "Already on DHI Chart" in markdown
+
+
 def test_render_report_includes_image_details() -> None:
     result = MatchResult(
         release_name="kyverno",
