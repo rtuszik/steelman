@@ -1,0 +1,51 @@
+[project]
+name = "steelman"
+version = "0.1.0"
+description = "Zero-config Flux to Docker Hardened Images chart migration reporter"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "httpx>=0.28.0",
+  "kubernetes>=32.0.0",
+  "pyyaml>=6.0.2",
+]
+
+[project.scripts]
+steelman = "steelman.cli:main"
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3.5",
+  "pytest-cov>=7.0.0",
+  "ruff>=0.9.3",
+  "ty>=0.0.18",
+]
+
+[build-system]
+requires = ["uv_build>=0.10.4,<0.11.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "E",
+  "F",
+  "I",
+  "UP",
+  "B",
+  "SIM",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.uv]
+package = true
+
+[tool.uv.build-backend]
+module-name = "steelman"
+module-root = "src"

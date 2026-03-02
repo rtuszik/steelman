@@ -1,0 +1,16 @@
+{
+  "aliases": [
+    {
+      "chartName": "external-dns",
+      "repoContains": "external-dns",
+      "dhiRepo": "external-dns-chart",
+      "reason": "Known DHI naming difference"
+    },
+    {
+      "chartName": "reloader",
+      "repoContains": "stakater",
+      "dhiRepo": "stakater-reloader-chart",
+      "reason": "Known DHI vendor-prefixed chart name"
+    }
+  ]
+}
