@@ -213,6 +213,63 @@ Notes:
 - if you do not want issue creation, keep only the `steelman` step
 - artifact handling in Woodpecker depends on your runner and storage configuration, so this example leaves the report in `reports/`
 
+### GitLab CI
+
+This example runs the same Git-only scan in a Flux repository, stores the generated reports as job artifacts, and optionally opens or updates a GitLab issue using the API.
+
+```yaml
+stages:
+  - report
+
+steelman:
+  stage: report
+  image: ghcr.io/astral-sh/uv:python3.13-bookworm
+  script:
+    - uvx steelman --mode git --repo . --output-dir reports
+  artifacts:
+    when: always
+    paths:
+      - reports/steelman.md
+      - reports/steelman.json
+    expire_in: 7 days
+
+steelman_issue:
+  stage: report
+  image: debian:bookworm-slim
+  needs:
+    - job: steelman
+      artifacts: true
+  rules:
+    - if: $GITLAB_TOKEN
+  script:
+    - apt-get update
+    - apt-get install -y curl jq
+    - |
+      issue_iid="$(curl --silent --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+        "$CI_API_V4_URL/projects/$CI_PROJECT_ID/issues?state=opened&search=steelman%20report" | jq -r '.[0].iid // empty')"
+    - |
+      report_body="$(jq -Rs . < reports/steelman.md)"
+      if [ -n "$issue_iid" ]; then
+        curl --silent --request PUT \
+          --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+          --header "Content-Type: application/json" \
+          --data "{\"title\":\"steelman report\",\"description\":$report_body}" \
+          "$CI_API_V4_URL/projects/$CI_PROJECT_ID/issues/$issue_iid"
+      else
+        curl --silent --request POST \
+          --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+          --header "Content-Type: application/json" \
+          --data "{\"title\":\"steelman report\",\"description\":$report_body,\"labels\":\"steelman\"}" \
+          "$CI_API_V4_URL/projects/$CI_PROJECT_ID/issues"
+      fi
+```
+
+Notes:
+
+- the `steelman_issue` job is optional
+- set `GITLAB_TOKEN` as a masked CI variable if you want issue creation
+- if you only want artifacts, keep just the `steelman` job
+
 ### Cluster Mode In CI
 
 If you want to scan live clusters instead of Git manifests, switch to:
