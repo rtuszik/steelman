@@ -1,0 +1,48 @@
+name: Publish
+
+on:
+    push:
+        tags:
+            - "v*"
+    workflow_dispatch:
+
+jobs:
+    publish:
+        name: Publish
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+            id-token: write
+        environment:
+            name: pypi
+            url: https://pypi.org/p/steelman
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v6
+
+            - name: Set up uv
+              uses: astral-sh/setup-uv@v7
+
+            - name: Install Python
+              run: uv python install 3.13
+
+            - name: Build distributions
+              run: uv build
+
+            - name: Upload distributions
+              uses: actions/upload-artifact@v6
+              with:
+                  name: python-dist
+                  path: dist/*
+                  if-no-files-found: error
+
+            - name: Create or update GitHub Release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 || \
+                  gh release create "${GITHUB_REF_NAME}" --generate-notes
+                  gh release upload "${GITHUB_REF_NAME}" dist/* --clobber
+
+            - name: Publish package distributions to PyPI
+              run: uv publish
