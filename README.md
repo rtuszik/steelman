@@ -58,25 +58,25 @@ Chart replacement takes precedence over image replacement.
 
 ## Usage
 
-From the repo root:
+Using the published package:
 
 ```bash
-uv run steelman
+uvx steelman
 ```
 
 Common variants:
 
 ```bash
-uv run steelman --mode cluster
-uv run steelman --mode git --repo /path/to/gitops-repo
-uv run steelman --contexts prod-eu,prod-us
-uv run steelman --output-dir reports
-uv run steelman --offline
-uv run steelman --skip-image-analysis
-uv run steelman --helm-bin helm
-uv run steelman --image-match-threshold 0.75
-uv run steelman --aliases ./aliases.yaml
-uv run steelman --verbose
+uvx steelman --mode cluster
+uvx steelman --mode git --repo /path/to/gitops-repo
+uvx steelman --contexts prod-eu,prod-us
+uvx steelman --output-dir reports
+uvx steelman --offline
+uvx steelman --skip-image-analysis
+uvx steelman --helm-bin helm
+uvx steelman --image-match-threshold 0.75
+uvx steelman --aliases ./aliases.yaml
+uvx steelman --verbose
 ```
 
 ## Defaults
