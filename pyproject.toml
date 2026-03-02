@@ -4,6 +4,10 @@ version = "0.2.0"
 description = "Zero-config Flux to Docker Hardened Images chart migration reporter"
 readme = "README.md"
 requires-python = ">=3.12"
+license = "Apache-2.0"
+classifiers = [
+  "License :: OSI Approved :: Apache Software License",
+]
 dependencies = [
   "httpx>=0.28.0",
   "kubernetes>=32.0.0",
