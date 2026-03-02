@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import shutil
 from pathlib import Path
 
 from .catalog import fetch_catalog
@@ -58,6 +59,11 @@ def main(argv: list[str] | None = None) -> int:
 
     use_git = args.mode in {"git", "both"} and not args.no_git
     use_cluster = args.mode in {"cluster", "both"} and not args.no_cluster
+
+    if not args.skip_image_analysis and shutil.which(args.helm_bin) is None:
+        message = f"Helm binary '{args.helm_bin}' not found; image analysis will be skipped"
+        errors.append(ScanError(source="helm", message=message))
+        LOGGER.warning(message)
 
     if use_git:
         LOGGER.info("Scanning Git manifests under %s", args.repo)
