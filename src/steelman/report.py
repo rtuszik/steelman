@@ -164,12 +164,34 @@ def render_issue_markdown(
     if not results:
         sections.append("- No Helm releases were detected.")
     else:
-        sections.extend(_render_issue_checklist("Pending chart migrations", actionable, "hardened_chart_available"))
-        sections.extend(_render_issue_checklist("Pending image migrations", actionable, "hardened_images_available"))
-        sections.extend(_render_issue_checklist("Already on DHI", already_done, "already_dhi_chart"))
+        sections.extend(
+            _render_issue_checklist(
+                "Pending chart migrations",
+                actionable,
+                "hardened_chart_available",
+            )
+        )
+        sections.extend(
+            _render_issue_checklist(
+                "Pending image migrations",
+                actionable,
+                "hardened_images_available",
+            )
+        )
+        sections.extend(
+            _render_issue_checklist("Already on DHI", already_done, "already_dhi_chart")
+        )
         sections.extend(_render_issue_notes("No DHI replacement", no_replacement))
 
-    sections.extend(["", "## Artifacts", "", "- Full report: `reports/steelman.md`", "- Machine-readable report: `reports/steelman.json`"])
+    sections.extend(
+        [
+            "",
+            "## Artifacts",
+            "",
+            "- Full report: `reports/steelman.md`",
+            "- Machine-readable report: `reports/steelman.json`",
+        ]
+    )
 
     sections.extend(["", "## Scan Notes", ""])
     if errors:
@@ -230,10 +252,7 @@ def _render_image_section(title: str, results: list[MatchResult], statuses: set[
     section.append("| --- | --- | --- | --- | --- | --- | --- |")
     for result in filtered:
         top = result.image_replacements[0]
-        row = (
-            "| {cluster} | {namespace} | {release} | {chart} | {count} | "
-            "{top} | {rationale} |"
-        )
+        row = "| {cluster} | {namespace} | {release} | {chart} | {count} | {top} | {rationale} |"
         section.append(
             row.format(
                 cluster=result.cluster or "git",
@@ -315,7 +334,8 @@ def _render_issue_notes(title: str, results: list[MatchResult]) -> list[str]:
         return section
     for result in results:
         section.append(
-            f"- `{result.namespace}/{result.release_name}` ({result.cluster or 'git'}): {_issue_result_summary(result)}"
+            f"- `{result.namespace}/{result.release_name}` "
+            f"({result.cluster or 'git'}): {_issue_result_summary(result)}"
         )
     section.append("")
     return section
@@ -323,15 +343,12 @@ def _render_issue_notes(title: str, results: list[MatchResult]) -> list[str]:
 
 def _issue_result_summary(result: MatchResult) -> str:
     if result.recommendation_type == "hardened_chart_available" and result.chart_replacement:
-        return (
-            f"Replace chart `{result.current.chart_name or '-'}` with "
-            f"`{result.chart_replacement.source_url or result.chart_replacement.chart_name or '-'}`."
-        )
+        target = result.chart_replacement.source_url or result.chart_replacement.chart_name or "-"
+        return f"Replace chart `{result.current.chart_name or '-'}` with `{target}`."
     if result.recommendation_type == "hardened_images_available" and result.image_replacements:
         top = result.image_replacements[0]
-        return (
-            f"Update `{top.path}` from `{top.current_image}` to `{top.dhi_image_ref}`."
-        )
+        return f"Update `{top.path}` from `{top.current_image}` to `{top.dhi_image_ref}`."
     if result.recommendation_type == "already_dhi_chart":
-        return f"Current chart source: `{result.current.source_url or result.current.chart_name or '-'}`."
+        current = result.current.source_url or result.current.chart_name or "-"
+        return f"Current chart source: `{current}`."
     return "; ".join([*result.reasons, *result.analysis_notes]) or "-"
