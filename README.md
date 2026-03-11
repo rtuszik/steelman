@@ -92,6 +92,7 @@ If run without flags:
 - writes:
     - `./steelman.md`
     - `./steelman.json`
+    - `./steelman-issue.md`
 
 ## Output
 
@@ -113,6 +114,13 @@ The JSON report contains:
 - per-release results
 - recorded errors
 
+The issue report contains:
+
+- a CI-managed `DHI implementation status` issue body
+- pending chart and image migrations as checklist items
+- already-migrated DHI releases as checked items
+- scan errors and a compact summary for a single long-lived issue
+
 ## CI Examples
 
 These examples assume:
@@ -129,7 +137,7 @@ uvx steelman --mode git --repo . --output-dir reports
 
 ### GitHub Actions
 
-This example runs on a schedule and on manual dispatch, scans the current Flux repo, uploads the report artifacts, and creates or updates an issue named `steelman report`.
+This example runs on a schedule and on manual dispatch, scans the current Flux repo, uploads the report artifacts, and creates or updates a single issue named `DHI implementation status`.
 
 ```yaml
 name: Steelman Report
@@ -167,23 +175,23 @@ jobs:
               env:
                   GH_TOKEN: ${{ github.token }}
               run: |
-                  issue_number="$(gh issue list --state open --label steelman --search 'steelman report in:title' --json number --jq '.[0].number')"
+                  issue_number="$(gh issue list --state open --label steelman --search 'DHI implementation status in:title' --json number --jq '.[0].number')"
                   if [ -n "$issue_number" ]; then
-                    gh issue edit "$issue_number" --title "steelman report" --body-file reports/steelman.md
+                    gh issue edit "$issue_number" --title "DHI implementation status" --body-file reports/steelman-issue.md
                   else
-                    gh issue create --title "steelman report" --label steelman --body-file reports/steelman.md
+                    gh issue create --title "DHI implementation status" --label steelman --body-file reports/steelman-issue.md
                   fi
 ```
 
 Notes:
 
 - this scans desired state from Git only
-- `reports/steelman.md` and `reports/steelman.json` are uploaded as artifacts
+- `reports/steelman.md`, `reports/steelman.json`, and `reports/steelman-issue.md` are uploaded as artifacts
 - the issue update step requires `issues: write`
 
 ### Woodpecker CI
 
-This example runs the same Git-only scan and stores the generated files in the workspace. If your Woodpecker setup exposes a GitHub token, you can also open or update an issue with `gh`.
+This example runs the same Git-only scan and stores the generated files in the workspace. If your Woodpecker setup exposes a GitHub token, you can also open or update the same long-lived issue with `gh`.
 
 ```yaml
 steps:
@@ -200,12 +208,12 @@ steps:
         commands:
             - apt-get update
             - apt-get install -y gh
-            - issue_number="$(gh issue list --repo "$CI_REPO" --state open --label steelman --search 'steelman report in:title' --json number --jq '.[0].number')"
+            - issue_number="$(gh issue list --repo "$CI_REPO" --state open --label steelman --search 'DHI implementation status in:title' --json number --jq '.[0].number')"
             - |
                 if [ -n "$issue_number" ]; then
-                  gh issue edit "$issue_number" --repo "$CI_REPO" --title "steelman report" --body-file reports/steelman.md
+                  gh issue edit "$issue_number" --repo "$CI_REPO" --title "DHI implementation status" --body-file reports/steelman-issue.md
                 else
-                  gh issue create --repo "$CI_REPO" --title "steelman report" --label steelman --body-file reports/steelman.md
+                  gh issue create --repo "$CI_REPO" --title "DHI implementation status" --label steelman --body-file reports/steelman-issue.md
                 fi
 ```
 
@@ -217,7 +225,7 @@ Notes:
 
 ### GitLab CI
 
-This example runs the same Git-only scan in a Flux repository, stores the generated reports as job artifacts, and optionally opens or updates a GitLab issue using the API.
+This example runs the same Git-only scan in a Flux repository, stores the generated reports as job artifacts, and optionally opens or updates a single GitLab issue for DHI implementation tracking.
 
 ```yaml
 stages:
@@ -233,6 +241,7 @@ steelman:
         paths:
             - reports/steelman.md
             - reports/steelman.json
+            - reports/steelman-issue.md
         expire_in: 7 days
 
 steelman_issue:
@@ -248,20 +257,20 @@ steelman_issue:
         - apt-get install -y curl jq
         - |
             issue_iid="$(curl --silent --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-              "$CI_API_V4_URL/projects/$CI_PROJECT_ID/issues?state=opened&search=steelman%20report" | jq -r '.[0].iid // empty')"
+              "$CI_API_V4_URL/projects/$CI_PROJECT_ID/issues?state=opened&labels=steelman&search=DHI%20implementation%20status" | jq -r '.[0].iid // empty')"
         - |
-            report_body="$(jq -Rs . < reports/steelman.md)"
+            report_body="$(jq -Rs . < reports/steelman-issue.md)"
             if [ -n "$issue_iid" ]; then
               curl --silent --request PUT \
                 --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
                 --header "Content-Type: application/json" \
-                --data "{\"title\":\"steelman report\",\"description\":$report_body}" \
+                --data "{\"title\":\"DHI implementation status\",\"description\":$report_body}" \
                 "$CI_API_V4_URL/projects/$CI_PROJECT_ID/issues/$issue_iid"
             else
               curl --silent --request POST \
                 --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
                 --header "Content-Type: application/json" \
-                --data "{\"title\":\"steelman report\",\"description\":$report_body,\"labels\":\"steelman\"}" \
+                --data "{\"title\":\"DHI implementation status\",\"description\":$report_body,\"labels\":\"steelman\"}" \
                 "$CI_API_V4_URL/projects/$CI_PROJECT_ID/issues"
             fi
 ```

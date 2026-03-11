@@ -119,14 +119,14 @@ def main(argv: list[str] | None = None) -> int:
             recommendation_counts.get(result.recommendation_type, 0) + 1
         )
     LOGGER.info("Recommendation summary: %s", recommendation_counts)
-    markdown_path, json_path = write_reports(
+    markdown_path, json_path, issue_path = write_reports(
         args.output_dir,
         catalog,
         results,
         errors,
         include_already_migrated=args.include_already_migrated,
     )
-    LOGGER.info("Wrote reports: %s and %s", markdown_path, json_path)
+    LOGGER.info("Wrote reports: %s, %s, and %s", markdown_path, json_path, issue_path)
     if errors:
         LOGGER.warning("Completed with %s recorded scan errors", len(errors))
     else:

@@ -8,7 +8,7 @@ from steelman.flux import (
     MatchResult,
     ScanError,
 )
-from steelman.report import render_json, render_markdown
+from steelman.report import render_issue_markdown, render_json, render_markdown
 
 
 def _snapshot() -> CatalogSnapshot:
@@ -166,3 +166,72 @@ def test_render_report_includes_image_details() -> None:
     markdown = render_markdown(_snapshot(), [result], [])
     assert "Image Details" in markdown
     assert "dhi.io/kyverno" in markdown
+
+
+def test_render_issue_report_tracks_pending_and_completed_work() -> None:
+    pending_chart = MatchResult(
+        release_name="external-dns",
+        cluster="prod",
+        namespace="networking",
+        origin="cluster",
+        current=CurrentSource(
+            source_kind="helm",
+            source_url="https://kubernetes-sigs.github.io/external-dns/",
+            chart_name="external-dns",
+            version="1.18.0",
+        ),
+        identity=ChartIdentity(
+            project="external-dns",
+            vendor=None,
+            repo_url="https://kubernetes-sigs.github.io/external-dns/",
+            tokens=["external", "dns"],
+        ),
+        recommendation_type="hardened_chart_available",
+        chart_replacement=CurrentSource(
+            source_kind="oci",
+            source_url="oci://dhi.io/external-dns-chart",
+            chart_name="external-dns-chart",
+            version=None,
+        ),
+        image_replacements=[],
+        chart_match_status="alias",
+        chart_match_confidence=0.99,
+        chart_match_reasons=["Built-in alias matched release to DHI repo"],
+        chart_match_evidence=["catalogRepo: external-dns-chart"],
+        reasons=["Built-in alias matched release to DHI repo"],
+        evidence=["catalogRepo: external-dns-chart"],
+    )
+    done = MatchResult(
+        release_name="reloader",
+        cluster="prod",
+        namespace="platform",
+        origin="cluster",
+        current=CurrentSource(
+            source_kind="oci",
+            source_url="oci://dhi.io/stakater-reloader-chart",
+            chart_name="stakater-reloader-chart",
+            version="1.0.0",
+        ),
+        identity=ChartIdentity(
+            project="reloader",
+            vendor="stakater",
+            repo_url="oci://dhi.io/stakater-reloader-chart",
+            tokens=["reloader"],
+        ),
+        recommendation_type="already_dhi_chart",
+        chart_replacement=None,
+        image_replacements=[],
+        chart_match_status="already-dhi",
+        chart_match_confidence=1.0,
+        chart_match_reasons=[],
+        chart_match_evidence=[],
+        reasons=[],
+        evidence=[],
+    )
+
+    issue = render_issue_markdown(_snapshot(), [pending_chart, done], [])
+
+    assert "# DHI Implementation Status" in issue
+    assert "- [ ] `networking/external-dns` (prod)" in issue
+    assert "Replace chart `external-dns` with `oci://dhi.io/external-dns-chart`." in issue
+    assert "- [x] `platform/reloader` (prod)" in issue
