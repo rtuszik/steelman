@@ -109,9 +109,7 @@ def _helm_release_to_item(
         source_name = source_ref_name
         source_doc = None
         if source_ref_kind and source_ref_name:
-            source_doc = source_index.get(
-                (source_ref_kind, source_ref_namespace, source_ref_name)
-            )
+            source_doc = source_index.get((source_ref_kind, source_ref_namespace, source_ref_name))
         source_kind = SOURCE_KINDS.get(source_ref_kind, "unknown")
         source_url = _extract_source_url(source_doc)
         if source_doc is None and source_ref_name:

@@ -11,9 +11,7 @@ def test_extract_image_references_from_nested_values() -> None:
                 "tag": "v1.13.0",
             }
         },
-        "backgroundController": {
-            "image": "ghcr.io/kyverno/background-controller:v1.13.0"
-        },
+        "backgroundController": {"image": "ghcr.io/kyverno/background-controller:v1.13.0"},
     }
     refs = extract_image_references(values)
     assert [ref.path for ref in refs] == [

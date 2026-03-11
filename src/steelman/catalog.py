@@ -156,9 +156,10 @@ def _build_image_item(
 
 
 def _display_name(info: dict[str, Any], repo_name: str) -> str:
-    return _first_str(info, "displayName", "display_name", "name", "title") or repo_name.replace(
-        "-", " "
-    ).title()
+    return (
+        _first_str(info, "displayName", "display_name", "name", "title")
+        or repo_name.replace("-", " ").title()
+    )
 
 
 def _description(info: dict[str, Any], overview: str | None) -> str | None:
