@@ -1,6 +1,6 @@
 [project]
 name = "steelman"
-version = "0.2.0"
+version = "0.3.0"
 description = "Zero-config Flux to Docker Hardened Images chart migration reporter"
 readme = "README.md"
 requires-python = ">=3.12"
