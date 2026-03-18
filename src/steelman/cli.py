@@ -15,11 +15,7 @@ from .report import write_reports
 LOGGER = logging.getLogger("steelman")
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="steelman",
-        description="Report Flux Helm releases that have DHI OCI chart replacements.",
-    )
+def _add_scan_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--mode", choices=("git", "cluster", "both"), default="both")
     parser.add_argument("--repo", type=Path, default=Path("."))
     parser.add_argument("--contexts", help="Comma-separated kube contexts to scan")
@@ -37,12 +33,41 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--helm-bin", default="helm")
     parser.add_argument("--image-match-threshold", type=float, default=0.75)
     parser.add_argument("--verbose", action="store_true")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="steelman",
+        description="Report Flux Helm releases that have DHI OCI chart replacements.",
+    )
+    _add_scan_args(parser)
+    parser.add_argument(
+        "--issue",
+        action="store_true",
+        help="Write steelman-issue.md (GitHub issue body for CI-managed tracking)",
+    )
+
+    subparsers = parser.add_subparsers(dest="subcommand")
+    ci_parser = subparsers.add_parser(
+        "ci",
+        help="Run with CI defaults: generates steelman-issue.md by default",
+        description="Run steelman with CI defaults. Generates steelman-issue.md by default.",
+    )
+    _add_scan_args(ci_parser)
+    ci_parser.add_argument(
+        "--no-issue",
+        action="store_true",
+        help="Skip writing steelman-issue.md",
+    )
+
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     _configure_logging(verbose=args.verbose)
+
+    write_issue = not args.no_issue if args.subcommand == "ci" else args.issue
 
     LOGGER.info("Starting steelman")
     catalog = fetch_catalog(offline=args.offline)
@@ -125,8 +150,12 @@ def main(argv: list[str] | None = None) -> int:
         results,
         errors,
         include_already_migrated=args.include_already_migrated,
+        write_issue=write_issue,
     )
-    LOGGER.info("Wrote reports: %s, %s, and %s", markdown_path, json_path, issue_path)
+    if issue_path:
+        LOGGER.info("Wrote reports: %s, %s, and %s", markdown_path, json_path, issue_path)
+    else:
+        LOGGER.info("Wrote reports: %s and %s", markdown_path, json_path)
     if errors:
         LOGGER.warning("Completed with %s recorded scan errors", len(errors))
     else:

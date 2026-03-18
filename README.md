@@ -77,6 +77,15 @@ uvx steelman --helm-bin helm
 uvx steelman --image-match-threshold 0.75
 uvx steelman --aliases ./aliases.yaml
 uvx steelman --verbose
+uvx steelman --issue
+```
+
+Use the `ci` subcommand to run with CI defaults (generates `steelman-issue.md` by default):
+
+```bash
+uvx steelman ci
+uvx steelman ci --mode git --repo . --output-dir reports
+uvx steelman ci --no-issue
 ```
 
 ## Defaults
@@ -92,7 +101,14 @@ If run without flags:
 - writes:
     - `./steelman.md`
     - `./steelman.json`
-    - `./steelman-issue.md`
+
+> [!NOTE]
+> **BREAKING CHANGE** (from previous versions): `steelman-issue.md` is no longer written by default.
+> Use `--issue` to generate it, or use the `steelman ci` subcommand which generates it by default.
+
+The `ci` subcommand uses the same defaults with one difference:
+
+- writes `./steelman-issue.md` in addition to the above (use `--no-issue` to suppress)
 
 ## Output
 
@@ -132,7 +148,7 @@ These examples assume:
 For Git-only scans, use:
 
 ```bash
-uvx steelman --mode git --repo . --output-dir reports
+uvx steelman ci --mode git --repo . --output-dir reports
 ```
 
 ### GitHub Actions
@@ -162,7 +178,7 @@ jobs:
               uses: astral-sh/setup-uv@v7
 
             - name: Run steelman
-              run: uvx steelman --mode git --repo . --output-dir reports
+              run: uvx steelman ci --mode git --repo . --output-dir reports
 
             - name: Upload reports
               uses: actions/upload-artifact@v6
@@ -187,6 +203,7 @@ Notes:
 
 - this scans desired state from Git only
 - `reports/steelman.md`, `reports/steelman.json`, and `reports/steelman-issue.md` are uploaded as artifacts
+- `steelman ci` generates `steelman-issue.md` by default; use `steelman ci --no-issue` to skip it
 - the issue update step requires `issues: write`
 
 ### Woodpecker CI
@@ -198,7 +215,7 @@ steps:
     steelman:
         image: ghcr.io/astral-sh/uv:python3.13-bookworm
         commands:
-            - uvx steelman --mode git --repo . --output-dir reports
+            - uvx steelman ci --mode git --repo . --output-dir reports
 
     steelman-report:
         image: ghcr.io/astral-sh/uv:python3.13-bookworm
@@ -235,7 +252,7 @@ steelman:
     stage: report
     image: ghcr.io/astral-sh/uv:python3.13-bookworm
     script:
-        - uvx steelman --mode git --repo . --output-dir reports
+        - uvx steelman ci --mode git --repo . --output-dir reports
     artifacts:
         when: always
         paths:
@@ -286,7 +303,7 @@ Notes:
 If you want to scan live clusters instead of Git manifests, switch to:
 
 ```bash
-uvx steelman --mode cluster --contexts prod-eu,prod-us --output-dir reports
+uvx steelman ci --mode cluster --contexts prod-eu,prod-us --output-dir reports
 ```
 
 That requires kubeconfig access in the CI environment. For a Flux repository, Git mode is usually the simpler starting point because it only scans desired state from the repo.

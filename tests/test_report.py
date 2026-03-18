@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from steelman.catalog import CatalogSnapshot
 from steelman.flux import (
     ChartIdentity,
@@ -8,7 +10,7 @@ from steelman.flux import (
     MatchResult,
     ScanError,
 )
-from steelman.report import render_issue_markdown, render_json, render_markdown
+from steelman.report import render_issue_markdown, render_json, render_markdown, write_reports
 
 
 def _snapshot() -> CatalogSnapshot:
@@ -235,3 +237,20 @@ def test_render_issue_report_tracks_pending_and_completed_work() -> None:
     assert "- [ ] `networking/external-dns` (prod)" in issue
     assert "Replace chart `external-dns` with `oci://dhi.io/external-dns-chart`." in issue
     assert "- [x] `platform/reloader` (prod)" in issue
+
+
+def test_write_reports_no_issue_by_default(tmp_path: Path) -> None:
+    md, js, issue = write_reports(tmp_path, _snapshot(), [], [])
+    assert md.exists()
+    assert js.exists()
+    assert issue is None
+    assert not (tmp_path / "steelman-issue.md").exists()
+
+
+def test_write_reports_with_issue(tmp_path: Path) -> None:
+    md, js, issue = write_reports(tmp_path, _snapshot(), [], [], write_issue=True)
+    assert md.exists()
+    assert js.exists()
+    assert issue is not None
+    assert issue.exists()
+    assert issue.name == "steelman-issue.md"
