@@ -16,11 +16,11 @@ def write_reports(
     errors: list[ScanError],
     *,
     include_already_migrated: bool = False,
-) -> tuple[Path, Path, Path]:
+    write_issue: bool = False,
+) -> tuple[Path, Path, Path | None]:
     output_dir.mkdir(parents=True, exist_ok=True)
     markdown_path = output_dir / "steelman.md"
     json_path = output_dir / "steelman.json"
-    issue_path = output_dir / "steelman-issue.md"
     markdown_path.write_text(
         render_markdown(
             catalog,
@@ -33,10 +33,13 @@ def write_reports(
     json_path.write_text(
         json.dumps(render_json(catalog, results, errors), indent=2), encoding="utf-8"
     )
-    issue_path.write_text(
-        render_issue_markdown(catalog, results, errors),
-        encoding="utf-8",
-    )
+    issue_path: Path | None = None
+    if write_issue:
+        issue_path = output_dir / "steelman-issue.md"
+        issue_path.write_text(
+            render_issue_markdown(catalog, results, errors),
+            encoding="utf-8",
+        )
     return markdown_path, json_path, issue_path
 
 
