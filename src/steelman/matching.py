@@ -17,7 +17,7 @@ from .flux import (
     InventoryItem,
     MatchResult,
 )
-from .identity import is_dhi_url, normalize_name, tokenize
+from .identity import is_dhi_url, normalize_name, normalize_url, tokenize
 from .image_values import extract_image_references, path_exists
 
 MIN_LIKELY_SCORE = 4.5
@@ -436,8 +436,11 @@ def _score_chart_candidate(item: InventoryItem, candidate: DhiCatalogItem) -> Sc
     reasons: list[str] = []
     evidence = [f"catalogRepo: {candidate.dhi_repo}"]
     candidate_name = normalize_name(candidate.dhi_repo)
+    candidate_home_url = normalize_url(candidate.home_url)
     project = normalize_name(item.identity.project)
     chart_name = normalize_name(item.current.chart_name)
+    identity_repo_url = normalize_url(item.identity.repo_url)
+    current_source_url = normalize_url(item.current.source_url)
     if candidate_name and project and candidate_name == project:
         score += 6.0
         reasons.append("Normalized chart name exactly matches DHI repo name")
@@ -462,6 +465,15 @@ def _score_chart_candidate(item: InventoryItem, candidate: DhiCatalogItem) -> Sc
         score += 1.5
         reasons.append("Vendor token aligns with the candidate repo")
         evidence.append(f"vendor: {item.identity.vendor}")
+
+    if candidate_home_url and identity_repo_url and candidate_home_url == identity_repo_url:
+        score += 7.0
+        reasons.append("Upstream project URL matches DHI catalog home URL")
+        evidence.append(f"homeUrl: {candidate.home_url}")
+    elif candidate_home_url and current_source_url and candidate_home_url == current_source_url:
+        score += 6.5
+        reasons.append("Current chart source URL matches DHI catalog home URL")
+        evidence.append(f"homeUrl: {candidate.home_url}")
 
     if item.current.source_url and any(
         link

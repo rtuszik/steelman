@@ -21,6 +21,7 @@ def _catalog(
                 dhi_repo=repo,
                 display_name=repo,
                 description=None,
+                home_url=None,
                 documentation_links=[],
                 path=f"chart/{repo}",
             )
@@ -31,6 +32,7 @@ def _catalog(
                 image_repo=repo,
                 display_name=repo,
                 description=None,
+                home_url=None,
                 documentation_links=[],
                 path=f"image/{repo}",
             )
@@ -115,3 +117,61 @@ def test_image_match_uses_helm_defaults(monkeypatch) -> None:
     )
     assert results[0].recommendation_type == "hardened_images_available"
     assert results[0].image_replacements[0].dhi_image_ref == "dhi.io/kyverno"
+
+
+def test_chart_match_uses_catalog_home_url() -> None:
+    item = _item("reloader", "https://github.com/stakater/Reloader/")
+    catalog = CatalogSnapshot(
+        charts=[
+            DhiCatalogItem(
+                dhi_repo="stakater-reloader",
+                display_name="Reloader Helm Chart",
+                description="A Kubernetes controller for restarting workloads",
+                home_url="https://github.com/stakater/Reloader",
+                documentation_links=["https://github.com/stakater/Reloader"],
+                path="chart/stakater-reloader",
+            )
+        ],
+        images=[],
+        fetched_at="2026-03-02T00:00:00+00:00",
+        source="test",
+    )
+
+    results = match_inventory([item], catalog, skip_image_analysis=True)
+
+    assert results[0].recommendation_type == "hardened_chart_available"
+    assert results[0].chart_replacement is not None
+    assert results[0].chart_replacement.source_url == "oci://dhi.io/stakater-reloader"
+
+
+def test_home_url_match_beats_generic_token_overlap() -> None:
+    item = _item("reloader", "https://github.com/stakater/Reloader/")
+    catalog = CatalogSnapshot(
+        charts=[
+            DhiCatalogItem(
+                dhi_repo="generic-reloader",
+                display_name="Reloader",
+                description="A generic reloader",
+                home_url="https://example.com/other/reloader",
+                documentation_links=["https://example.com/other/reloader"],
+                path="chart/generic-reloader",
+            ),
+            DhiCatalogItem(
+                dhi_repo="stakater-reloader",
+                display_name="Reloader Helm Chart",
+                description="A Kubernetes controller for restarting workloads",
+                home_url="https://github.com/stakater/Reloader",
+                documentation_links=["https://github.com/stakater/Reloader"],
+                path="chart/stakater-reloader",
+            ),
+        ],
+        images=[],
+        fetched_at="2026-03-02T00:00:00+00:00",
+        source="test",
+    )
+
+    results = match_inventory([item], catalog, skip_image_analysis=True)
+
+    assert results[0].recommendation_type == "hardened_chart_available"
+    assert results[0].chart_replacement is not None
+    assert results[0].chart_replacement.chart_name == "stakater-reloader"
