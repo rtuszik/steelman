@@ -6,9 +6,10 @@ from steelman.flux import (
     CurrentSource,
     DhiCatalogItem,
     DhiImageCatalogItem,
+    ImageReference,
     InventoryItem,
 )
-from steelman.matching import match_inventory
+from steelman.matching import _match_image_reference, match_inventory
 
 
 def _catalog(
@@ -175,3 +176,96 @@ def test_home_url_match_beats_generic_token_overlap() -> None:
     assert results[0].recommendation_type == "hardened_chart_available"
     assert results[0].chart_replacement is not None
     assert results[0].chart_replacement.chart_name == "stakater-reloader"
+
+
+def test_image_match_ignores_generic_token_overlap() -> None:
+    reference = ImageReference(
+        path="image.repository",
+        repository="emberstack/kubernetes-reflector",
+        registry="docker.io",
+        tag=None,
+        digest=None,
+        raw="docker.io/emberstack/kubernetes-reflector",
+        source="chart-defaults",
+    )
+    candidate = DhiImageCatalogItem(
+        image_repo="jenkins-inbound-agent",
+        display_name="Jenkins inbound agent",
+        description="Docker image for inbound Jenkins agents running in Kubernetes",
+        home_url=None,
+        documentation_links=[],
+        path="image/jenkins-inbound-agent",
+    )
+
+    result = _match_image_reference(reference, [candidate], 0.75)
+
+    assert result is None
+
+
+def test_image_match_requires_distinctive_basename_overlap_for_fuzzy_match() -> None:
+    reference = ImageReference(
+        path="image.repository",
+        repository="docker.io/grafana/mcp-grafana",
+        registry=None,
+        tag=None,
+        digest=None,
+        raw="docker.io/grafana/mcp-grafana",
+        source="chart-defaults",
+    )
+    candidate = DhiImageCatalogItem(
+        image_repo="grafana-mcp",
+        display_name="Grafana MCP",
+        description=None,
+        home_url=None,
+        documentation_links=[],
+        path="image/grafana-mcp",
+    )
+
+    result = _match_image_reference(reference, [candidate], 0.75)
+
+    assert result is not None
+    assert result.dhi_image_ref == "dhi.io/grafana-mcp"
+
+
+def test_image_match_rejects_single_shared_token_false_positives() -> None:
+    candidates = [
+        (
+            "grafana/mcp-grafana",
+            "context7-mcp",
+        ),
+        (
+            "docker-enterprise-provisioner-prod/enterprise-provisioner",
+            "csi-provisioner",
+        ),
+        (
+            "open-webui/open-webui",
+            "open-policy-agent",
+        ),
+        (
+            "falcosecurity/falco-driver-loader",
+            "aws-ebs-csi-driver",
+        ),
+    ]
+
+    for repository, dhi_repo in candidates:
+        reference = ImageReference(
+            path="image.repository",
+            repository=repository,
+            registry=None,
+            tag=None,
+            digest=None,
+            raw=repository,
+            source="chart-defaults",
+        )
+        candidate = DhiImageCatalogItem(
+            image_repo=dhi_repo,
+            display_name=dhi_repo,
+            description=None,
+            home_url=None,
+            documentation_links=[],
+            path=f"image/{dhi_repo}",
+        )
+
+        result = _match_image_reference(reference, [candidate], 0.75)
+
+        assert result is None
