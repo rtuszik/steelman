@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import json
 import tarfile
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -15,6 +16,8 @@ from .flux import DhiCatalogItem, DhiImageCatalogItem
 
 ARCHIVE_URL = "https://codeload.github.com/docker-hardened-images/catalog/tar.gz/refs/heads/main"
 CACHE_FILE = "catalog.json"
+INFO_SPEC_PATH = ".info.spec.json"
+REQUIRED_INFO_METADATA_KEYS = {"display-name", "short-description", "home-url"}
 
 
 @dataclass(slots=True)
@@ -70,6 +73,17 @@ def parse_catalog_archive(content: bytes) -> CatalogSnapshot:
     fetched_at = datetime.now(tz=UTC).isoformat()
     chart_docs, chart_overviews = _extract_section(content, "chart")
     image_docs, image_overviews = _extract_section(content, "image")
+    degraded = False
+    notes: list[str] = []
+
+    missing_spec_keys = _missing_required_info_spec_keys(content)
+    if missing_spec_keys:
+        degraded = True
+        notes.append(
+            "Upstream info schema is missing expected metadata keys: "
+            f"{', '.join(sorted(missing_spec_keys))}"
+        )
+
     charts = [
         _build_chart_item(name, chart_docs.get(name, {}), chart_overviews.get(name), fetched_at)
         for name in sorted(set(chart_docs) | set(chart_overviews))
@@ -78,11 +92,27 @@ def parse_catalog_archive(content: bytes) -> CatalogSnapshot:
         _build_image_item(name, image_docs.get(name, {}), image_overviews.get(name), fetched_at)
         for name in sorted(set(image_docs) | set(image_overviews))
     ]
+
+    chart_home_urls = sum(1 for item in charts if item.home_url)
+    image_home_urls = sum(1 for item in images if item.home_url)
+    if charts and chart_home_urls < max(1, len(charts) // 2):
+        degraded = True
+        notes.append(
+            f"Only {chart_home_urls}/{len(charts)} chart catalog entries expose a parsed home URL"
+        )
+    if images and image_home_urls < max(1, len(images) // 2):
+        degraded = True
+        notes.append(
+            f"Only {image_home_urls}/{len(images)} image catalog entries expose a parsed home URL"
+        )
+
     return CatalogSnapshot(
         charts=charts,
         images=images,
         fetched_at=fetched_at,
         source="github-archive",
+        degraded=degraded,
+        notes=notes,
     )
 
 
@@ -115,6 +145,32 @@ def _extract_section(
     return info_docs, overviews
 
 
+def _missing_required_info_spec_keys(content: bytes) -> set[str]:
+    with tarfile.open(fileobj=io.BytesIO(content), mode="r:gz") as archive:
+        for member in archive.getmembers():
+            if not member.isfile():
+                continue
+            path = PurePosixPath(member.name)
+            if len(path.parts) < 2 or path.name != INFO_SPEC_PATH:
+                continue
+            handle = archive.extractfile(member)
+            if handle is None:
+                continue
+            try:
+                payload = json.loads(handle.read().decode("utf-8"))
+            finally:
+                handle.close()
+            metadata_props = (
+                payload.get("properties", {}).get("metadata", {}).get("properties", {})
+                if isinstance(payload, dict)
+                else {}
+            )
+            if not isinstance(metadata_props, dict):
+                return REQUIRED_INFO_METADATA_KEYS.copy()
+            return REQUIRED_INFO_METADATA_KEYS - set(metadata_props)
+    return REQUIRED_INFO_METADATA_KEYS.copy()
+
+
 def _download_catalog_archive() -> bytes:
     with httpx.Client(follow_redirects=True, timeout=30.0) as client:
         response = client.get(ARCHIVE_URL, headers={"User-Agent": "steelman/0.1.0"})
@@ -132,6 +188,7 @@ def _build_chart_item(
         dhi_repo=repo_name,
         display_name=_display_name(info, repo_name),
         description=_description(info, overview),
+        home_url=_home_url(info),
         documentation_links=_collect_links(info),
         path=f"chart/{repo_name}",
         last_seen_at=fetched_at,
@@ -149,6 +206,7 @@ def _build_image_item(
         image_repo=image_repo,
         display_name=_display_name(info, repo_name),
         description=_description(info, overview),
+        home_url=_home_url(info),
         documentation_links=_collect_links(info),
         path=f"image/{repo_name}",
         last_seen_at=fetched_at,
@@ -157,23 +215,32 @@ def _build_image_item(
 
 def _display_name(info: dict[str, Any], repo_name: str) -> str:
     return (
-        _first_str(info, "displayName", "display_name", "name", "title")
+        _first_str_nested(info, ("metadata", "display-name"))
+        or _first_str(info, "displayName", "display_name", "name", "title")
         or repo_name.replace("-", " ").title()
     )
 
 
 def _description(info: dict[str, Any], overview: str | None) -> str | None:
-    description = _first_str(info, "description", "summary") or _first_str_nested(
-        info, ("chart", "description"), ("metadata", "description")
-    )
+    description = _first_str_nested(
+        info,
+        ("metadata", "short-description"),
+        ("chart", "description"),
+        ("metadata", "description"),
+    ) or _first_str(info, "description", "summary")
     if not description and overview:
         return overview.splitlines()[0].lstrip("# ").strip()
     return description
 
 
+def _home_url(info: dict[str, Any]) -> str | None:
+    return _first_str_nested(info, ("metadata", "home-url")) or _first_str(info, "homepage", "home")
+
+
 def _collect_links(info: dict[str, Any]) -> list[str]:
     links: list[str] = []
     candidates: list[Any] = [
+        _first_value_nested(info, ("metadata", "home-url")),
         info.get("documentation"),
         info.get("docs"),
         info.get("links"),
@@ -257,6 +324,7 @@ def _from_json_chart(item: dict[str, Any]) -> dict[str, Any]:
         "dhi_repo": item["dhiRepo"],
         "display_name": item["displayName"],
         "description": item.get("description"),
+        "home_url": item.get("homeUrl"),
         "documentation_links": item.get("documentationLinks", []),
         "path": item["path"],
         "last_seen_at": item.get("lastSeenAt"),
@@ -268,6 +336,7 @@ def _from_json_image(item: dict[str, Any]) -> dict[str, Any]:
         "image_repo": item["imageRepo"],
         "display_name": item["displayName"],
         "description": item.get("description"),
+        "home_url": item.get("homeUrl"),
         "documentation_links": item.get("documentationLinks", []),
         "path": item["path"],
         "last_seen_at": item.get("lastSeenAt"),

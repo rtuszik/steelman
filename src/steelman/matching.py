@@ -17,7 +17,7 @@ from .flux import (
     InventoryItem,
     MatchResult,
 )
-from .identity import is_dhi_url, normalize_name, tokenize
+from .identity import is_dhi_url, normalize_name, normalize_url, tokenize
 from .image_values import extract_image_references, path_exists
 
 MIN_LIKELY_SCORE = 4.5
@@ -355,13 +355,13 @@ def _match_image_reference(
     best: tuple[DhiImageCatalogItem, float, list[str], list[str]] | None = None
     current_repo = _normalize_repo(reference.repository)
     current_basename = _repo_basename(reference.repository)
-    current_tokens = set(tokenize(reference.repository, current_basename))
+    current_repo_tokens = set(_repo_tokens(reference.repository))
+    current_basename_tokens = set(_repo_tokens(current_basename))
     for candidate in image_catalog:
         candidate_repo = _normalize_repo(candidate.image_repo)
         candidate_basename = _repo_basename(candidate.image_repo)
-        candidate_tokens = set(
-            tokenize(candidate.image_repo, candidate.display_name, candidate.description)
-        )
+        candidate_repo_tokens = set(_repo_tokens(candidate.image_repo))
+        candidate_basename_tokens = set(_repo_tokens(candidate_basename))
         confidence = 0.0
         reasons: list[str] = []
         evidence = [f"imageRepo: {candidate.image_repo}"]
@@ -372,11 +372,17 @@ def _match_image_reference(
             confidence = 0.9
             reasons.append("Image repo basename matches DHI image basename")
         else:
-            shared = current_tokens & candidate_tokens
-            if len(shared) >= 2:
+            if (
+                len(current_basename_tokens) >= 2
+                and current_basename_tokens == candidate_basename_tokens
+            ):
+                confidence = 0.85
+                reasons.append("Image repo basename token set matches DHI image basename")
+                evidence.append(f"basenameTokens: {', '.join(sorted(current_basename_tokens))}")
+            elif len(current_repo_tokens) >= 2 and current_repo_tokens == candidate_repo_tokens:
                 confidence = 0.8
-                reasons.append(f"Meaningful image repo tokens overlap: {', '.join(sorted(shared))}")
-                evidence.append(f"sharedTokens: {', '.join(sorted(shared))}")
+                reasons.append("Image repo token set matches DHI image repo")
+                evidence.append(f"repoTokens: {', '.join(sorted(current_repo_tokens))}")
         if confidence < threshold:
             continue
         if best is None or confidence > best[1]:
@@ -436,8 +442,11 @@ def _score_chart_candidate(item: InventoryItem, candidate: DhiCatalogItem) -> Sc
     reasons: list[str] = []
     evidence = [f"catalogRepo: {candidate.dhi_repo}"]
     candidate_name = normalize_name(candidate.dhi_repo)
+    candidate_home_url = normalize_url(candidate.home_url)
     project = normalize_name(item.identity.project)
     chart_name = normalize_name(item.current.chart_name)
+    identity_repo_url = normalize_url(item.identity.repo_url)
+    current_source_url = normalize_url(item.current.source_url)
     if candidate_name and project and candidate_name == project:
         score += 6.0
         reasons.append("Normalized chart name exactly matches DHI repo name")
@@ -462,6 +471,15 @@ def _score_chart_candidate(item: InventoryItem, candidate: DhiCatalogItem) -> Sc
         score += 1.5
         reasons.append("Vendor token aligns with the candidate repo")
         evidence.append(f"vendor: {item.identity.vendor}")
+
+    if candidate_home_url and identity_repo_url and candidate_home_url == identity_repo_url:
+        score += 7.0
+        reasons.append("Upstream project URL matches DHI catalog home URL")
+        evidence.append(f"homeUrl: {candidate.home_url}")
+    elif candidate_home_url and current_source_url and candidate_home_url == current_source_url:
+        score += 6.5
+        reasons.append("Current chart source URL matches DHI catalog home URL")
+        evidence.append(f"homeUrl: {candidate.home_url}")
 
     if item.current.source_url and any(
         link
@@ -532,6 +550,10 @@ def _repo_basename(value: str) -> str | None:
     if not normalized:
         return None
     return normalized.rsplit("/", 1)[-1]
+
+
+def _repo_tokens(*values: str | None) -> list[str]:
+    return tokenize(*values)
 
 
 def _same_domain(left: str, right: str) -> bool:

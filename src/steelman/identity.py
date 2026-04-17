@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 from .flux import ChartIdentity, CurrentSource
 
@@ -86,3 +86,23 @@ def normalize_oci_host(url: str) -> str | None:
     candidate = f"https://{trimmed}" if "://" not in trimmed else trimmed
     parsed = urlparse(candidate)
     return parsed.netloc.lower() or None
+
+
+def normalize_url(url: str | None) -> str | None:
+    if not url:
+        return None
+    parsed = urlparse(url)
+    if not parsed.scheme or not parsed.netloc:
+        return None
+    path = parsed.path.rstrip("/")
+    if path.endswith(".git"):
+        path = path[:-4]
+    normalized = parsed._replace(
+        scheme=parsed.scheme.lower(),
+        netloc=parsed.netloc.lower(),
+        path=path,
+        params="",
+        query="",
+        fragment="",
+    )
+    return urlunparse(normalized)

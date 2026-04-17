@@ -88,6 +88,7 @@ class DhiCatalogItem:
     dhi_repo: str
     display_name: str
     description: str | None
+    home_url: str | None
     documentation_links: list[str]
     path: str
     last_seen_at: str | None = None
@@ -100,6 +101,7 @@ class DhiCatalogItem:
             "dhiRepo": self.dhi_repo,
             "displayName": self.display_name,
             "description": self.description,
+            "homeUrl": self.home_url,
             "documentationLinks": self.documentation_links,
             "path": self.path,
             "lastSeenAt": self.last_seen_at,
@@ -111,6 +113,7 @@ class DhiImageCatalogItem:
     image_repo: str
     display_name: str
     description: str | None
+    home_url: str | None
     documentation_links: list[str]
     path: str
     last_seen_at: str | None = None
@@ -123,6 +126,7 @@ class DhiImageCatalogItem:
             "imageRepo": self.image_repo,
             "displayName": self.display_name,
             "description": self.description,
+            "homeUrl": self.home_url,
             "documentationLinks": self.documentation_links,
             "path": self.path,
             "lastSeenAt": self.last_seen_at,
