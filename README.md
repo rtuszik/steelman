@@ -213,18 +213,17 @@ This example runs the same Git-only scan and stores the generated files in the w
 ```yaml
 steps:
     steelman:
-        image: ghcr.io/astral-sh/uv:python3.13-bookworm
+        image: ghcr.io/astral-sh/uv:python3.13-alpine
         commands:
             - uvx steelman ci --mode git --repo . --output-dir reports
 
     steelman-report:
-        image: ghcr.io/astral-sh/uv:python3.13-bookworm
+        image: ghcr.io/astral-sh/uv:python3.13-alpine
         environment:
             GITHUB_TOKEN:
                 from_secret: github_token
         commands:
-            - apt-get update
-            - apt-get install -y gh
+            - apk add --no-cache gh
             - issue_number="$(gh issue list --repo "$CI_REPO" --state open --label steelman --search 'DHI implementation status in:title' --json number --jq '.[0].number')"
             - |
                 if [ -n "$issue_number" ]; then
@@ -250,7 +249,7 @@ stages:
 
 steelman:
     stage: report
-    image: ghcr.io/astral-sh/uv:python3.13-bookworm
+    image: ghcr.io/astral-sh/uv:python3.13-alpine
     script:
         - uvx steelman ci --mode git --repo . --output-dir reports
     artifacts:
@@ -263,15 +262,14 @@ steelman:
 
 steelman_issue:
     stage: report
-    image: debian:bookworm-slim
+    image: alpine:3.21
     needs:
         - job: steelman
           artifacts: true
     rules:
         - if: $GITLAB_TOKEN
     script:
-        - apt-get update
-        - apt-get install -y curl jq
+        - apk add --no-cache curl jq
         - |
             issue_iid="$(curl --silent --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
               "$CI_API_V4_URL/projects/$CI_PROJECT_ID/issues?state=opened&labels=steelman&search=DHI%20implementation%20status" | jq -r '.[0].iid // empty')"
